@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Episode, SummaryResult, ProcessingProgress } from '@/types';
 import EpisodeForm from '@/components/EpisodeForm';
-import CostEstimator from '@/components/CostEstimator';
 import ProgressTracker from '@/components/ProgressTracker';
 import AudioPlayer from '@/components/AudioPlayer';
 
@@ -104,11 +103,6 @@ export default function Home() {
           onEpisodesChange={setEpisodes}
           onTargetDurationChange={setTargetDuration}
         />
-
-        {/* Cost Estimator */}
-        {episodes.length > 0 && (
-          <CostEstimator episodes={episodes} targetDuration={targetDuration} />
-        )}
 
         {/* Submit Button */}
         <button
