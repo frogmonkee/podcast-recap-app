@@ -44,9 +44,6 @@ export interface ProcessingProgress {
 export interface SummaryRequest {
   episodes: Episode[];
   targetDuration: 1 | 5 | 10; // minutes
-  openaiApiKey: string;
-  anthropicApiKey: string;
-  listenNotesApiKey?: string;
 }
 
 export interface SummaryResult {

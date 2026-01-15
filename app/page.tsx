@@ -1,9 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Episode, ApiKeys, SummaryResult, ProcessingProgress } from '@/types';
-import ApiKeyInput from '@/components/ApiKeyInput';
-import BudgetTracker from '@/components/BudgetTracker';
+import { Episode, SummaryResult, ProcessingProgress } from '@/types';
 import ApiCallCounter from '@/components/ApiCallCounter';
 import EpisodeForm from '@/components/EpisodeForm';
 import CostEstimator from '@/components/CostEstimator';
@@ -11,7 +9,6 @@ import ProgressTracker from '@/components/ProgressTracker';
 import AudioPlayer from '@/components/AudioPlayer';
 
 export default function Home() {
-  const [apiKeys, setApiKeys] = useState<ApiKeys>({ openai: '', anthropic: '', listenNotes: '' });
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [targetDuration, setTargetDuration] = useState<1 | 5 | 10>(5);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -21,11 +18,6 @@ export default function Home() {
 
   const handleSubmit = async () => {
     // Validation
-    if (!apiKeys.openai || !apiKeys.anthropic) {
-      setError('Please provide both OpenAI and Anthropic API keys');
-      return;
-    }
-
     if (episodes.length === 0) {
       setError('Please add at least one episode URL');
       return;
@@ -50,9 +42,6 @@ export default function Home() {
         body: JSON.stringify({
           episodes,
           targetDuration,
-          openaiApiKey: apiKeys.openai,
-          anthropicApiKey: apiKeys.anthropic,
-          listenNotesApiKey: apiKeys.listenNotes,
         }),
       });
 
@@ -98,7 +87,7 @@ export default function Home() {
     }
   };
 
-  const canSubmit = apiKeys.openai && apiKeys.anthropic && episodes.length > 0 && !isProcessing;
+  const canSubmit = episodes.length > 0 && !isProcessing;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -111,20 +100,14 @@ export default function Home() {
           </p>
         </div>
 
-        {/* API Keys */}
-        <ApiKeyInput onKeysChange={setApiKeys} />
-
-        {/* Budget Tracker */}
-        <BudgetTracker />
-
         {/* Listen Notes API Call Counter */}
-        {apiKeys.listenNotes && <ApiCallCounter />}
+        <ApiCallCounter />
 
         {/* Episode Form */}
         <EpisodeForm
           onEpisodesChange={setEpisodes}
           onTargetDurationChange={setTargetDuration}
-          listenNotesApiKey={apiKeys.listenNotes}
+          listenNotesApiKey={process.env.NEXT_PUBLIC_LISTENNOTES_API_KEY}
         />
 
         {/* Cost Estimator */}
@@ -162,8 +145,7 @@ export default function Home() {
         {/* Footer */}
         <div className="text-center text-sm text-gray-500">
           <p>
-            Keep your browser open during processing (2-4 minutes). API keys are stored locally and
-            never sent to our servers.
+            Keep your browser open during processing (2-4 minutes).
           </p>
         </div>
       </div>

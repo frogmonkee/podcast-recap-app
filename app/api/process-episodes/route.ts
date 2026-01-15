@@ -20,10 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!body.openaiApiKey || !body.anthropicApiKey) {
+    // Get API keys from environment variables
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    const listenNotesApiKey = process.env.LISTENNOTES_API_KEY;
+
+    if (!openaiApiKey || !anthropicApiKey) {
       return new Response(
-        JSON.stringify({ error: 'API keys are required' }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Server API keys not configured' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -88,7 +93,7 @@ export async function POST(request: NextRequest) {
             });
 
             try {
-              transcript = await transcribeAudio(episode.audioUrl, body.openaiApiKey);
+              transcript = await transcribeAudio(episode.audioUrl, openaiApiKey);
 
               // Estimate transcription cost (Whisper is $0.006 per minute)
               const durationMinutes = episode.duration ? episode.duration / 60 : 60;
@@ -127,7 +132,7 @@ export async function POST(request: NextRequest) {
         const summaryText = await summarizeEpisodes(
           episodesWithTranscripts,
           body.targetDuration,
-          body.anthropicApiKey
+          anthropicApiKey
         );
 
         await sendProgress({
@@ -140,7 +145,7 @@ export async function POST(request: NextRequest) {
         const audioBuffer = await textToSpeech(
           summaryText,
           body.targetDuration * 60,
-          body.openaiApiKey
+          openaiApiKey
         );
 
         await sendProgress({
