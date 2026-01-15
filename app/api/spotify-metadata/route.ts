@@ -96,7 +96,9 @@ export async function POST(request: NextRequest) {
           if (searchData.results && searchData.results.length > 0) {
             const match = searchData.results[0]; // Use first result (most relevant)
             console.log('[Listen Notes] Found match:', match.title_original, 'Duration:', match.audio_length_sec);
+            console.log('[Listen Notes] Audio URL:', match.audio);
             console.log('[Listen Notes] Audio URL present:', !!match.audio);
+            console.log('[Listen Notes] Match object keys:', Object.keys(match));
 
             // Update metadata with Listen Notes data
             metadata.duration = match.audio_length_sec || metadata.duration;
