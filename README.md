@@ -4,227 +4,240 @@ Generate audio summaries of multi-episode podcasts with timestamp control to avo
 
 ## Features
 
-✅ **Working Features (MVP Demo):**
-- Enter up to 5 Spotify podcast episode URLs
-- Select summary duration (1, 5, or 10 minutes)
-- Timestamp slider for final episode (avoid spoilers)
-- Real-time progress tracking with Server-Sent Events
-- Claude AI text summarization
-- OpenAI TTS audio generation
-- Budget tracking ($20/month limit with $5 per-request cap)
-- Cost estimation before processing
-- Audio playback and download
-- Mobile-responsive UI
+### Core Functionality
+- ✅ **Spotify Episode Input:** Add multiple Spotify podcast episode URLs
+- ✅ **Metadata Fetching:** Automatic episode title, duration, and show name retrieval via Listen Notes API
+- ✅ **Spoiler Control:** Timestamp slider for final episode to avoid spoilers
+- ✅ **Summary Duration:** Choose 1, 5, or 10-minute summaries
+- ✅ **Audio Transcription:** OpenAI Whisper with automatic chunking for large files
+- ✅ **AI Summarization:** Claude Sonnet 4.5 for high-quality summaries
+- ✅ **Text-to-Speech:** OpenAI TTS with automatic text chunking
+- ✅ **Real-time Progress:** Server-Sent Events for live progress updates
+- ✅ **Audio Playback:** In-browser audio player with download capability
+- ✅ **Cloud Storage:** Vercel Blob for generated audio files
+- ✅ **Mobile Responsive:** Works on desktop and mobile devices
 
-🚧 **In Progress (Needs API Integration):**
-- Spotify API for episode metadata
-- RSS feed parsing for audio URLs
-- Multi-source transcript finding (Spotify, RSS, YouTube, web)
-- OpenAI Whisper transcription (fallback when no transcript exists)
+### Technical Features
+- Server-side API key management (secure)
+- Audio file chunking (handles files > 25MB for Whisper)
+- Text chunking (handles summaries > 4096 chars for TTS)
+- Listen Notes API integration for podcast metadata and audio URLs
+- Fallback to 1-hour duration when Listen Notes unavailable
 
-## Current Status: MVP Demo Mode
+## Current Status: Working MVP
 
-The app is **fully functional** for testing the UX flow. It uses **mock transcripts** to demonstrate the complete pipeline:
-1. Episode input → 2. Progress tracking → 3. Summary generation → 4. Audio output
+**Deployed and functional on Vercel.** The app successfully processes real podcast episodes through the complete pipeline:
 
-**What works:**
-- All UI components
-- Claude API summarization
-- OpenAI TTS generation
-- Vercel Blob storage
-- Budget tracking
-- Cost estimation
-
-**What needs integration (8-12 hours):**
-- Real Spotify episode metadata
-- Actual podcast audio extraction
-- Transcript finding/transcription
+1. User enters Spotify episode URLs
+2. Listen Notes fetches metadata and audio URLs
+3. Whisper transcribes audio (with chunking for large files)
+4. Claude generates summary
+5. OpenAI TTS creates audio summary
+6. User downloads or plays the summary
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Prerequisites
 
+You'll need API keys from:
+- **OpenAI** - For Whisper transcription and TTS ([Get API key](https://platform.openai.com/api-keys))
+- **Anthropic** - For Claude summarization ([Get API key](https://console.anthropic.com/))
+- **Listen Notes** - For podcast metadata ([Get API key](https://www.listennotes.com/api/))
+- **Vercel Blob** - For audio storage ([Create store](https://vercel.com/dashboard/stores))
+
+### Local Development
+
+1. **Install dependencies:**
 ```bash
 npm install
 ```
 
-### 2. Set Up API Keys
-
-You'll need:
-- **OpenAI API Key** - Get from [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- **Anthropic API Key** - Get from [https://console.anthropic.com/](https://console.anthropic.com/)
-- **Vercel Blob Token** (for deployment) - Get from [https://vercel.com/dashboard/stores](https://vercel.com/dashboard/stores)
-
-Create `.env.local`:
-
+2. **Create `.env.local` file:**
 ```bash
+# API Keys (server-side only, not exposed to browser)
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+LISTENNOTES_API_KEY=your_listennotes_key_here
+
+# Vercel Blob Storage
 BLOB_READ_WRITE_TOKEN=your_vercel_blob_token_here
 ```
 
-**Note:** User API keys (OpenAI, Anthropic) are entered in the UI and stored in browser localStorage only.
-
-### 3. Run Development Server
-
+3. **Run development server:**
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+4. **Open browser:**
+Navigate to [http://localhost:3000](http://localhost:3000)
 
-### 4. Test the Demo
-
-1. Enter any valid Spotify podcast episode URL (e.g., `https://open.spotify.com/episode/...`)
-2. Add your OpenAI and Anthropic API keys in the UI
-3. Select summary duration
-4. Click "Generate Summary"
-5. Watch real-time progress
-6. Listen to generated audio summary
-
-**Demo Mode:** The app will use mock transcripts for now, but you'll see the full flow working!
+5. **Test with a real podcast:**
+- Enter a Spotify episode URL (e.g., `https://open.spotify.com/episode/...`)
+- Adjust timestamp slider if needed
+- Select summary duration
+- Click "Generate Summary"
+- Wait 2-4 minutes for processing
+- Listen to your summary!
 
 ## Project Structure
 
 ```
 app/
 ├── api/
-│   └── process-episodes/route.ts  # Main API endpoint with SSE
+│   ├── process-episodes/route.ts    # Main processing endpoint with SSE
+│   └── spotify-metadata/route.ts     # Spotify + Listen Notes metadata
 ├── layout.tsx
-└── page.tsx                        # Main UI page
+└── page.tsx                          # Main UI
 
 components/
-├── ApiKeyInput.tsx                 # API key management
-├── AudioPlayer.tsx                 # Audio playback + download
-├── BudgetTracker.tsx               # Monthly budget display
-├── CostEstimator.tsx               # Pre-request cost preview
-├── EpisodeForm.tsx                 # Episode URLs + duration selector
-├── ProgressTracker.tsx             # Live progress updates
-└── TimestampSlider.tsx             # Spoiler-avoiding timestamp control
+├── AudioPlayer.tsx                   # Audio playback + download
+├── EpisodeCard.tsx                   # Episode preview card
+├── EpisodeForm.tsx                   # Episode input form
+├── ProgressTracker.tsx               # Live progress display
+└── TimestampSlider.tsx               # Spoiler control slider
 
 lib/
-├── audio-extraction.ts             # RSS/Listen Notes audio URLs (TODO)
-├── cost-calculator.ts              # Budget enforcement
-├── summarization.ts                # Claude API integration ✅
-├── transcript-finder.ts            # Multi-source transcript search (TODO)
-├── transcript-truncator.ts         # Timestamp cutoff logic
-├── transcription.ts                # OpenAI Whisper (TODO)
-├── tts.ts                          # OpenAI TTS ✅
-└── utils.ts                        # Helper functions
+├── cost-calculator.ts                # Cost tracking and estimation
+├── summarization.ts                  # Claude API integration
+├── transcript-finder.ts              # Multi-source transcript search (placeholder)
+├── transcript-truncator.ts           # Timestamp cutoff logic
+├── transcription.ts                  # OpenAI Whisper with chunking
+├── tts.ts                            # OpenAI TTS with chunking
+└── utils.ts                          # Helper functions
 
 types/
-└── index.ts                        # TypeScript interfaces
+└── index.ts                          # TypeScript interfaces
 ```
 
 ## Cost Breakdown (Per Summary)
 
-| Component | Cost | When Used |
-|-----------|------|-----------|
-| Whisper Transcription | $0.006/min | Only if no transcript found |
-| Claude Summarization | ~$0.03 | Always |
-| OpenAI TTS | ~$0.01 | Always |
-| **Best Case** (transcript found) | **$0.04** | 70-80% of episodes |
-| **Worst Case** (6 hours audio) | **$2.20** | When transcription needed |
+Costs depend on podcast length and whether transcription is needed:
 
-**Budget Protection:**
-- $5 max per request (hard limit)
-- $20/month total (hard limit)
-- Warning at $15/month
-- Budget resets on 1st of each month
+| Component | Cost per Minute | Notes |
+|-----------|----------------|-------|
+| Whisper Transcription | $0.006/min | Only for audio input |
+| Claude Summarization | ~$0.015 | Based on transcript length |
+| OpenAI TTS | ~$0.015 | Based on summary length |
 
-## API Keys Setup
+**Example costs:**
+- 1-hour podcast → 5-min summary: **~$0.40-0.60**
+- 2-hour podcast → 10-min summary: **~$0.75-1.00**
 
-### OpenAI
-
-1. Go to [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-2. Create new secret key
-3. **Set usage limit:** $20/month in [billing settings](https://platform.openai.com/account/billing/limits)
-4. Enter key in app UI (stored in browser only)
-
-### Anthropic
-
-1. Go to [https://console.anthropic.com/](https://console.anthropic.com/)
-2. Create API key
-3. Enter key in app UI (stored in browser only)
-
-### Vercel Blob (For Deployment)
-
-1. Go to [https://vercel.com/dashboard/stores](https://vercel.com/dashboard/stores)
-2. Create new Blob store
-3. Copy `BLOB_READ_WRITE_TOKEN`
-4. Add to `.env.local` (for local dev) and Vercel environment variables (for production)
+**Note:** Listen Notes API has free tier (no additional cost for MVP).
 
 ## Deployment to Vercel
 
-### Option 1: Vercel CLI
+### Via GitHub
 
+1. **Push to GitHub:**
 ```bash
-npm install -g vercel
-vercel login
-vercel
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin your-github-repo-url
+git push -u origin main
 ```
 
-### Option 2: GitHub + Vercel
+2. **Deploy on Vercel:**
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your GitHub repository
+   - Add environment variables:
+     - `OPENAI_API_KEY`
+     - `ANTHROPIC_API_KEY`
+     - `LISTENNOTES_API_KEY`
+     - `BLOB_READ_WRITE_TOKEN`
+   - Click Deploy
 
-1. Push code to GitHub
-2. Go to [https://vercel.com/new](https://vercel.com/new)
-3. Import your repository
-4. Add environment variable: `BLOB_READ_WRITE_TOKEN`
-5. Deploy
+3. **Set Function Timeout (if needed):**
+   - Vercel Hobby plan: 60 seconds (may timeout on long podcasts)
+   - Vercel Pro plan: up to 900 seconds
+   - For long podcasts, upgrade to Pro or implement async processing
 
 Your app will be live at `https://your-app.vercel.app`
 
-## Next Steps for Full Production
+## Environment Variables
 
-To complete the app (8-12 hours of work):
+### Local Development (.env.local)
+```bash
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+LISTENNOTES_API_KEY=...
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+```
 
-1. **Spotify API Integration** (2-3 hours)
-   - Implement OAuth client credentials flow
-   - Fetch episode metadata (duration, title, show name)
-   - Test with various podcast types
+### Vercel Production
+Add the same variables in your Vercel project settings:
+- Project Settings → Environment Variables
+- Make sure variable names match exactly (case-sensitive)
+- Vercel will automatically redeploy when you update environment variables
 
-2. **Audio Extraction** (2-3 hours)
-   - Parse RSS feeds from Spotify episodes
-   - Extract audio URLs
-   - Implement Listen Notes API fallback
-
-3. **Transcript Finding** (2-3 hours)
-   - Spotify native transcripts
-   - RSS feed transcript links
-   - YouTube captions
-   - Web scraping fallback
-
-4. **Whisper Transcription** (1-2 hours)
-   - Audio file chunking (25MB limit)
-   - Progress tracking during transcription
-   - Error handling
-
-5. **Testing & Polish** (2-3 hours)
-   - Test with real podcast episodes
-   - Mobile responsiveness testing
-   - Edge case handling
+**Important:** The code expects these exact variable names:
+- `OPENAI_API_KEY` (not `OPENAI_WHISPER_KEY`)
+- `ANTHROPIC_API_KEY` (not `ANTHROPIC_KEY`)
+- `LISTENNOTES_API_KEY` (not `LISTEN_NOTES_KEY`)
 
 ## Known Limitations
 
-- **Must keep browser open** during processing (2-4 minutes)
-  - Future: Add job queue or email delivery
-- **Budget tracked per-browser** (localStorage)
-  - Future: Add user accounts with server-side tracking
-- **Sequential episode processing** (not parallel)
-  - Simpler for MVP, avoids rate limits
-- **Mock transcripts in demo mode**
-  - Need Spotify/RSS/Whisper integration for real transcripts
+### Technical Constraints
+- **Vercel Timeout:** Free tier has 60s limit; long podcasts may timeout
+  - Workaround: Upgrade to Pro plan (up to 900s)
+  - Future: Implement async job queue
+- **Browser Must Stay Open:** Processing takes 2-4 minutes
+  - Future: Add email notification when complete
+- **No Spotify Transcript Access:** Spotify doesn't expose transcripts via API
+  - Must use Whisper transcription for all episodes
+- **No Caching:** Same podcast processed multiple times costs each time
+  - Future: Cache transcripts and summaries
+
+### API Rate Limits
+- Listen Notes: 100 requests/month (free tier)
+- OpenAI Whisper: Rate limited by account tier
+- Claude: Rate limited by account tier
 
 ## Tech Stack
 
-- **Frontend:** Next.js 14, React, TypeScript, Tailwind CSS
-- **AI APIs:** Claude (Anthropic), OpenAI (Whisper + TTS)
+- **Framework:** Next.js 14 (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **AI APIs:**
+  - Claude Sonnet 4.5 (Anthropic) - Summarization
+  - OpenAI Whisper - Transcription
+  - OpenAI TTS - Text-to-Speech
+- **Podcast Data:** Listen Notes API
 - **Storage:** Vercel Blob
-- **Deployment:** Vercel (free tier)
+- **Deployment:** Vercel
+- **State Management:** React hooks
+
+## Development Notes
+
+### Audio Chunking Strategy
+Whisper has a 25MB file size limit. The app automatically:
+1. Chunks audio into 20MB segments
+2. Transcribes each chunk with context from previous chunk
+3. Concatenates transcripts
+
+### TTS Chunking Strategy
+OpenAI TTS has a 4096 character limit. The app automatically:
+1. Splits text at sentence boundaries
+2. Generates audio for each chunk
+3. Concatenates audio buffers
+
+### Logging
+The app includes detailed console logging for debugging:
+- Listen Notes API calls and responses
+- Transcription progress
+- TTS generation
+- Error tracking
+
+Check Vercel function logs for production debugging.
 
 ## Support
 
-For issues or questions, please open an issue on GitHub or contact the maintainers.
+For issues or questions:
+- Open an issue on GitHub
+- Check Vercel function logs for errors
+- Review console logs in browser DevTools
 
----
+## License
 
-**MVP Status:** UI complete, core APIs integrated (Claude + OpenAI TTS), transcript fetching needs implementation.
-**Estimated Time to Production:** 8-12 hours of additional development.
+MIT
