@@ -171,11 +171,6 @@ Add the same variables in your Vercel project settings:
 - Make sure variable names match exactly (case-sensitive)
 - Vercel will automatically redeploy when you update environment variables
 
-**Important:** The code expects these exact variable names:
-- `OPENAI_API_KEY` (not `OPENAI_WHISPER_KEY`)
-- `ANTHROPIC_API_KEY` (not `ANTHROPIC_KEY`)
-- `LISTENNOTES_API_KEY` (not `LISTEN_NOTES_KEY`)
-
 ## Known Limitations
 
 ### Technical Constraints
