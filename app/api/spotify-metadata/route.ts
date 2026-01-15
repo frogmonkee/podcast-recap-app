@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { episodeUrl, listenNotesApiKey } = await request.json();
+    const { episodeUrl } = await request.json();
+    const listenNotesApiKey = process.env.LISTENNOTES_API_KEY;
 
     if (!episodeUrl) {
       return new Response(JSON.stringify({ error: 'Episode URL is required' }), {
@@ -43,15 +44,14 @@ export async function POST(request: NextRequest) {
     const metadata = {
       title,
       showName,
-      duration: 3600, // TODO: Fallback to 1 hour - revisit this default
+      duration: 3600, // Default to 1 hour - will be updated from Listen Notes if available
       description: '',
       thumbnailUrl: oembedData.thumbnail_url || '',
       audioUrl: undefined as string | undefined,
       audioFileSize: undefined as number | undefined,
-      listenNotesCallMade: false, // Track if we made a Listen Notes API call
     };
 
-    // Step 2: If Listen Notes API key provided, fetch duration and audio URL
+    // Step 2: If Listen Notes API key available, fetch duration and audio URL
     if (listenNotesApiKey) {
       try {
         // Search for episode by title on Listen Notes
@@ -67,9 +67,6 @@ export async function POST(request: NextRequest) {
 
         if (listenNotesResponse.ok) {
           const searchData = await listenNotesResponse.json();
-
-          // Mark that we successfully made a Listen Notes API call
-          metadata.listenNotesCallMade = true;
 
           // Find best match by title similarity
           if (searchData.results && searchData.results.length > 0) {

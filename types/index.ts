@@ -16,9 +16,8 @@ export interface EpisodeMetadata {
   showName: string;
   description?: string;
   thumbnailUrl?: string;
-  audioUrl?: string; // Direct audio file URL from Listen Notes
-  audioFileSize?: number; // Audio file size in bytes
-  listenNotesCallMade?: boolean; // Track if API call was made
+  audioUrl?: string; // Audio file URL (if available)
+  audioFileSize?: number; // Audio file size in bytes (if available)
 }
 
 export interface TranscriptResult {

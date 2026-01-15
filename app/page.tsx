@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { Episode, SummaryResult, ProcessingProgress } from '@/types';
-import ApiCallCounter from '@/components/ApiCallCounter';
 import EpisodeForm from '@/components/EpisodeForm';
 import CostEstimator from '@/components/CostEstimator';
 import ProgressTracker from '@/components/ProgressTracker';
@@ -100,14 +99,10 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Listen Notes API Call Counter */}
-        <ApiCallCounter />
-
         {/* Episode Form */}
         <EpisodeForm
           onEpisodesChange={setEpisodes}
           onTargetDurationChange={setTargetDuration}
-          listenNotesApiKey={process.env.NEXT_PUBLIC_LISTENNOTES_API_KEY}
         />
 
         {/* Cost Estimator */}

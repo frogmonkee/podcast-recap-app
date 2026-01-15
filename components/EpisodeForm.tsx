@@ -9,10 +9,9 @@ import EpisodeCard from './EpisodeCard';
 interface EpisodeFormProps {
   onEpisodesChange: (episodes: Episode[]) => void;
   onTargetDurationChange: (duration: 1 | 5 | 10) => void;
-  listenNotesApiKey?: string;
 }
 
-export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange, listenNotesApiKey }: EpisodeFormProps) {
+export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }: EpisodeFormProps) {
   const [urls, setUrls] = useState<string[]>(['']);
   const [episodeMetadata, setEpisodeMetadata] = useState<(EpisodeMetadata | null)[]>([null]);
   const [targetDuration, setTargetDuration] = useState<1 | 5 | 10>(5);
@@ -68,7 +67,7 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange, 
 
   const fetchEpisodeMetadata = async (url: string, index: number): Promise<EpisodeMetadata | null> => {
     try {
-      // Call our API endpoint to fetch real Spotify metadata
+      // Call our API endpoint to fetch Spotify oEmbed metadata
       const response = await fetch('/api/spotify-metadata', {
         method: 'POST',
         headers: {
@@ -76,7 +75,6 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange, 
         },
         body: JSON.stringify({
           episodeUrl: url,
-          listenNotesApiKey: listenNotesApiKey || undefined,
         }),
       });
 
@@ -85,12 +83,6 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange, 
       }
 
       const metadata: EpisodeMetadata = await response.json();
-
-      // Increment Listen Notes API call counter if call was made
-      if (metadata.listenNotesCallMade) {
-        const currentCount = parseInt(localStorage.getItem('listenNotesCallCount') || '0', 10);
-        localStorage.setItem('listenNotesCallCount', (currentCount + 1).toString());
-      }
 
       const newMetadata = [...episodeMetadata];
       newMetadata[index] = metadata;
@@ -118,7 +110,6 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange, 
         },
         body: JSON.stringify({
           episodeUrl: url,
-          listenNotesApiKey: listenNotesApiKey || undefined,
         }),
       });
 
