@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
       description: '',
       thumbnailUrl: oembedData.thumbnail_url || '',
       audioUrl: undefined as string | undefined,
+      audioFileSize: undefined as number | undefined,
       listenNotesCallMade: false, // Track if we made a Listen Notes API call
     };
 
