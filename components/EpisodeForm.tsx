@@ -140,13 +140,16 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
   const updateEpisodes = (currentUrls: string[], timestamp: number | null) => {
     const validUrls = currentUrls.filter(url => isValidSpotifyUrl(url));
 
-    const episodes: Episode[] = validUrls.map((url, index) => {
-      const isLast = index === validUrls.length - 1;
-      const metadata = episodeMetadata[index];
+    const episodes: Episode[] = validUrls.map((url, validIndex) => {
+      const isLast = validIndex === validUrls.length - 1;
+
+      // Find metadata by matching the original URL index, not the validUrls index
+      const originalIndex = currentUrls.indexOf(url);
+      const metadata = episodeMetadata[originalIndex];
 
       return {
         url,
-        title: metadata?.title || `Episode ${index + 1}`,
+        title: metadata?.title || `Episode ${validIndex + 1}`,
         showName: metadata?.showName,
         duration: metadata?.duration || 3600, // fallback to 1 hour
         audioUrl: metadata?.audioUrl,
