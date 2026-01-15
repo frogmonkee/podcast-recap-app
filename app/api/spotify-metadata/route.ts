@@ -5,6 +5,9 @@ export async function POST(request: NextRequest) {
     const { episodeUrl } = await request.json();
     const listenNotesApiKey = process.env.LISTENNOTES_API_KEY;
 
+    console.log('[Metadata API] Request for:', episodeUrl);
+    console.log('[Metadata API] Listen Notes API key present:', !!listenNotesApiKey);
+
     if (!episodeUrl) {
       return new Response(JSON.stringify({ error: 'Episode URL is required' }), {
         status: 400,
@@ -59,18 +62,21 @@ export async function POST(request: NextRequest) {
           title
         )}&type=episode&only_in=title`;
 
+        console.log('[Listen Notes] Searching for episode:', title);
         const listenNotesResponse = await fetch(searchUrl, {
           headers: {
             'X-ListenAPI-Key': listenNotesApiKey,
           },
         });
 
+        console.log('[Listen Notes] Response status:', listenNotesResponse.status);
         if (listenNotesResponse.ok) {
           const searchData = await listenNotesResponse.json();
 
           // Find best match by title similarity
           if (searchData.results && searchData.results.length > 0) {
             const match = searchData.results[0]; // Use first result (most relevant)
+            console.log('[Listen Notes] Found match:', match.title_original, 'Duration:', match.audio_length_sec);
 
             // Update metadata with Listen Notes data
             metadata.duration = match.audio_length_sec || metadata.duration;
@@ -95,12 +101,19 @@ export async function POST(request: NextRequest) {
                 console.warn('Failed to fetch audio file size:', error);
               }
             }
+          } else {
+            console.log('[Listen Notes] No results found for:', title);
           }
+        } else {
+          const errorText = await listenNotesResponse.text();
+          console.error('[Listen Notes] API error:', listenNotesResponse.status, errorText);
         }
       } catch (listenNotesError) {
         // Listen Notes failed, but we still have oEmbed data
-        console.warn('Listen Notes API failed, using oEmbed data only:', listenNotesError);
+        console.error('[Listen Notes] Exception:', listenNotesError);
       }
+    } else {
+      console.log('[Listen Notes] API key not configured, using oEmbed data only');
     }
 
     return new Response(JSON.stringify(metadata), {
