@@ -119,12 +119,6 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
 
       const metadata: EpisodeMetadata = await response.json();
 
-      // Increment Listen Notes API call counter if call was made
-      if (metadata.listenNotesCallMade) {
-        const currentCount = parseInt(localStorage.getItem('listenNotesCallCount') || '0', 10);
-        localStorage.setItem('listenNotesCallCount', (currentCount + 1).toString());
-      }
-
       setLastEpisodeDuration(metadata.duration);
       setLastEpisodeTimestamp(metadata.duration); // Default to full duration
     } catch (error) {
