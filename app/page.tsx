@@ -31,6 +31,9 @@ export default function Home() {
     });
 
     try {
+      // Log episodes data being sent
+      console.log('[Client] Submitting episodes:', episodes);
+
       // Call API endpoint with Server-Sent Events
       const response = await fetch('/api/process-episodes', {
         method: 'POST',

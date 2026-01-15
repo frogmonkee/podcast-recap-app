@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
   try {
     const body: SummaryRequest = await request.json();
 
+    console.log('[Server] Received episodes:', JSON.stringify(body.episodes, null, 2));
+
     // Validate required fields
     if (!body.episodes || body.episodes.length === 0) {
       return new Response(
