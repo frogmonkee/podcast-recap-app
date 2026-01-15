@@ -8,6 +8,10 @@ import { findTranscript } from '@/lib/transcript-finder';
 import { transcribeAudio } from '@/lib/transcription';
 import { truncateTranscript } from '@/lib/transcript-truncator';
 
+// Set maximum duration for this serverless function
+// Hobby plan: max 60 seconds, Pro plan: max 300 seconds
+export const maxDuration = 300;
+
 export async function POST(request: NextRequest) {
   try {
     const body: SummaryRequest = await request.json();

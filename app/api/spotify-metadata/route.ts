@@ -57,26 +57,46 @@ export async function POST(request: NextRequest) {
     // Step 2: If Listen Notes API key available, fetch duration and audio URL
     if (listenNotesApiKey) {
       try {
-        // Search for episode by title on Listen Notes
-        const searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
+        // Try search with title first (most specific)
+        let searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
           title
         )}&type=episode&only_in=title`;
 
         console.log('[Listen Notes] Searching for episode:', title);
-        const listenNotesResponse = await fetch(searchUrl, {
+        console.log('[Listen Notes] Show name:', showName);
+        let listenNotesResponse = await fetch(searchUrl, {
           headers: {
             'X-ListenAPI-Key': listenNotesApiKey,
           },
         });
 
         console.log('[Listen Notes] Response status:', listenNotesResponse.status);
-        if (listenNotesResponse.ok) {
-          const searchData = await listenNotesResponse.json();
+        let searchData = await listenNotesResponse.json();
 
+        // If no results with title-only search, try broader search with show name
+        if (listenNotesResponse.ok && (!searchData.results || searchData.results.length === 0) && showName) {
+          console.log('[Listen Notes] No results with title-only, trying with show name...');
+          searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
+            `${title} ${showName}`
+          )}&type=episode`;
+
+          listenNotesResponse = await fetch(searchUrl, {
+            headers: {
+              'X-ListenAPI-Key': listenNotesApiKey,
+            },
+          });
+
+          if (listenNotesResponse.ok) {
+            searchData = await listenNotesResponse.json();
+          }
+        }
+
+        if (listenNotesResponse.ok) {
           // Find best match by title similarity
           if (searchData.results && searchData.results.length > 0) {
             const match = searchData.results[0]; // Use first result (most relevant)
             console.log('[Listen Notes] Found match:', match.title_original, 'Duration:', match.audio_length_sec);
+            console.log('[Listen Notes] Audio URL present:', !!match.audio);
 
             // Update metadata with Listen Notes data
             metadata.duration = match.audio_length_sec || metadata.duration;
