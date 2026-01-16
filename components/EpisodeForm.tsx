@@ -41,11 +41,14 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
 
     // If valid URL, fetch metadata for this episode
     let metadata: EpisodeMetadata | null = null;
+    const newMetadata = [...episodeMetadata];
+
     if (isValidSpotifyUrl(value)) {
       metadata = await fetchEpisodeMetadata(value, index);
+      // Update local metadata array with fetched data
+      newMetadata[index] = metadata;
     } else {
       // Clear metadata if URL becomes invalid
-      const newMetadata = [...episodeMetadata];
       newMetadata[index] = null;
       setEpisodeMetadata(newMetadata);
     }
@@ -62,7 +65,8 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
       setLastEpisodeTimestamp(null);
     }
 
-    updateEpisodes(newUrls, lastEpisodeTimestamp);
+    // Pass the updated metadata array directly to updateEpisodes
+    updateEpisodesWithMetadata(newUrls, newMetadata, lastEpisodeTimestamp);
   };
 
   const fetchEpisodeMetadata = async (url: string, index: number): Promise<EpisodeMetadata | null> => {
@@ -137,19 +141,24 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
     updateEpisodes(urls, seconds);
   };
 
-  const updateEpisodes = (currentUrls: string[], timestamp: number | null) => {
+  // Helper function that accepts metadata array as parameter
+  const updateEpisodesWithMetadata = (
+    currentUrls: string[],
+    metadataArray: (EpisodeMetadata | null)[],
+    timestamp: number | null
+  ) => {
     const validUrls = currentUrls.filter(url => isValidSpotifyUrl(url));
 
-    console.log('[EpisodeForm] updateEpisodes called');
+    console.log('[EpisodeForm] updateEpisodesWithMetadata called');
     console.log('[EpisodeForm] currentUrls:', currentUrls);
-    console.log('[EpisodeForm] episodeMetadata:', episodeMetadata);
+    console.log('[EpisodeForm] metadataArray:', metadataArray);
 
     const episodes: Episode[] = validUrls.map((url, validIndex) => {
       const isLast = validIndex === validUrls.length - 1;
 
       // Find metadata by matching the original URL index, not the validUrls index
       const originalIndex = currentUrls.indexOf(url);
-      const metadata = episodeMetadata[originalIndex];
+      const metadata = metadataArray[originalIndex];
 
       console.log(`[EpisodeForm] URL: ${url}, originalIndex: ${originalIndex}, metadata:`, metadata);
 
@@ -165,6 +174,11 @@ export default function EpisodeForm({ onEpisodesChange, onTargetDurationChange }
 
     console.log('[EpisodeForm] Final episodes:', episodes);
     onEpisodesChange(episodes);
+  };
+
+  // Wrapper that uses current episodeMetadata state
+  const updateEpisodes = (currentUrls: string[], timestamp: number | null) => {
+    updateEpisodesWithMetadata(currentUrls, episodeMetadata, timestamp);
   };
 
   const handleDurationChange = (duration: 1 | 5 | 10) => {
