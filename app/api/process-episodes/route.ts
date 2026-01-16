@@ -9,8 +9,8 @@ import { transcribeAudio } from '@/lib/transcription';
 import { truncateTranscript } from '@/lib/transcript-truncator';
 
 // Set maximum duration for this serverless function
-// Hobby plan: max 60 seconds, Pro plan: max 300 seconds
-export const maxDuration = 300;
+// Pro plan allows up to 900 seconds, set to 800 for safety margin
+export const maxDuration = 800;
 
 export async function POST(request: NextRequest) {
   try {
