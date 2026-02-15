@@ -65,3 +65,15 @@ export interface ApiKeys {
   anthropic: string;
   listenNotes?: string;
 }
+
+// Background job types
+export type JobStatus = 'processing' | 'completed' | 'failed';
+
+export interface Job {
+  id: string;
+  status: JobStatus;
+  progress: ProcessingProgress | null;
+  result: SummaryResult | null;
+  error: string | null;
+  createdAt: number;
+}

@@ -1,0 +1,26 @@
+Test Results — Sun Feb 15 15:30:01 EST 2026
+Base URL: http://localhost:3000
+
+Result | ID    | Description                                        | Expected | Actual   | Time
+-------|-------|--------------------------------------------------|----------|----------|------
+PASS   | 2.1   | Empty body to metadata endpoint                    | 400      | 400      | 0ms
+PASS   | 2.2   | Non-Spotify URL (YouTube)                          | 400      | 400      | 0ms
+PASS   | 2.3   | Spotify track URL (not episode)                    | 400      | 400      | 0ms
+PASS   | 2.4   | Malformed Spotify URL (no ID)                      | 500      | 500      | 11000ms
+PASS   | 2.5   | Non-existent episode ID                            | 500      | 500      | 2000ms
+PASS   | 2.13  | Invalid JSON body                                  | 500      | 500      | 0ms
+PASS   | 2.6   | Empty episodes array                               | 400      | 400      | 0ms
+PASS   | 2.7   | Missing episodes field                             | 400      | 400      | 0ms
+PASS   | 2.9   | Poll non-existent job UUID                         | 404      | 404      | 0ms
+PASS   | 2.10  | Poll garbage job ID                                | 404      | 404      | 0ms
+PASS   | 2.8   | Job with missing audioUrl (should fail)            | failed   | failed   | poll
+PASS   | 2.15  | GET to POST-only metadata endpoint                 | 405      | 405      | 1000ms
+PASS   | 2.16  | POST to GET-only job status endpoint               | 405      | 405      | 0ms
+PASS   | 1.1   | Metadata for valid Spotify episode                 | 200      | 200      | 1000ms
+PASS   | 2.12  | Spotify URL with query params                      | 200      | 200      | 2000ms
+PASS   | 1.3   | Full pipeline: 1 episode, 1-min summary            | completed | completed | poll
+PASS   | 1.4   | Full pipeline: 1 episode, 5-min summary            | completed | completed | poll
+PASS   | 1.8   | Pipeline with timestamp truncation (210s cutoff)   | completed | completed | poll
+PASS   | 1.5   | Full pipeline: 2 episodes, 1-min summary           | completed | completed | poll
+
+Total: 21 passed, 0 failed, 0 skipped

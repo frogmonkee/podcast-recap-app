@@ -54,7 +54,17 @@ export default function ProgressTracker({ progress, isProcessing }: ProgressTrac
 
           {/* Estimated Time Remaining */}
           <div className="text-xs text-gray-500 italic">
-            This may take 2-4 minutes depending on episode length...
+            This may take 2-4 minutes depending on episode length.
+          </div>
+
+          {/* Safe to close message */}
+          <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-md">
+            <svg className="h-4 w-4 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm text-green-800">
+              You can safely close this tab. Your summary will be ready when you return.
+            </p>
           </div>
         </>
       )}
