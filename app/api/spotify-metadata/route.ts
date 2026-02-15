@@ -52,6 +52,7 @@ export async function POST(request: NextRequest) {
       thumbnailUrl: oembedData.thumbnail_url || '',
       audioUrl: undefined as string | undefined,
       audioFileSize: undefined as number | undefined,
+      publishDate: undefined as string | undefined,
     };
 
     // Step 2: If Listen Notes API key available, fetch duration and audio URL
@@ -105,6 +106,7 @@ export async function POST(request: NextRequest) {
             metadata.audioUrl = match.audio || undefined;
             metadata.showName = match.podcast?.title_original || metadata.showName;
             metadata.description = match.description_original || metadata.description;
+            metadata.publishDate = match.pub_date_ms ? new Date(match.pub_date_ms).toISOString() : undefined;
 
             // Use Listen Notes thumbnail if better quality
             if (match.thumbnail && match.thumbnail.length > metadata.thumbnailUrl.length) {

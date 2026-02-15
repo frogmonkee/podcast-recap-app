@@ -18,6 +18,7 @@ export interface EpisodeMetadata {
   thumbnailUrl?: string;
   audioUrl?: string; // Audio file URL (if available)
   audioFileSize?: number; // Audio file size in bytes (if available)
+  publishDate?: string; // ISO date string of when the episode was published
 }
 
 export interface TranscriptResult {

@@ -1,13 +1,25 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import { SummaryResult } from '@/types';
 import { formatDuration, formatCost } from '@/lib/utils';
+
+const SPEED_PRESETS = [1, 1.25, 1.5, 2] as const;
 
 interface AudioPlayerProps {
   result: SummaryResult;
 }
 
 export default function AudioPlayer({ result }: AudioPlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
   const handleDownload = async () => {
     try {
       const response = await fetch(result.audioUrl);
@@ -31,10 +43,26 @@ export default function AudioPlayer({ result }: AudioPlayerProps) {
       <h2 className="text-xl font-bold text-gray-900">Your Summary is Ready!</h2>
 
       {/* Audio Player */}
-      <div className="w-full">
-        <audio controls className="w-full" src={result.audioUrl}>
+      <div className="w-full space-y-2">
+        <audio ref={audioRef} controls className="w-full" src={result.audioUrl}>
           Your browser does not support the audio element.
         </audio>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">Speed:</span>
+          {SPEED_PRESETS.map((speed) => (
+            <button
+              key={speed}
+              onClick={() => handleSpeedChange(speed)}
+              className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
+                playbackSpeed === speed
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {speed}x
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Download Button */}
