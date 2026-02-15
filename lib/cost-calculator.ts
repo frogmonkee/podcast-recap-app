@@ -3,7 +3,9 @@
 import { Episode, CostBreakdown, BudgetInfo } from '@/types';
 
 // Pricing constants (as of 2025)
-const WHISPER_COST_PER_MINUTE = 0.006;
+const WHISPER_COST_PER_MINUTE = 0.006; // Kept for reference
+const FIREWORKS_COST_PER_MINUTE = 0.0012; // Fireworks AI whisper-v3-turbo
+const TRANSCRIPTION_COST_PER_MINUTE = FIREWORKS_COST_PER_MINUTE; // Active transcription provider
 const CLAUDE_COST_ESTIMATE = 0.03; // Approximate for typical summary
 const TTS_COST_PER_CHAR = 0.000015;
 
@@ -81,7 +83,7 @@ export function estimateCost(
   episodes.forEach((episode, index) => {
     if (!hasTranscripts[index]) {
       const durationMinutes = episode.duration / 60;
-      transcriptionCost += durationMinutes * WHISPER_COST_PER_MINUTE;
+      transcriptionCost += durationMinutes * TRANSCRIPTION_COST_PER_MINUTE;
     }
   });
 
@@ -143,7 +145,7 @@ export function calculateActualCosts(
   minutesTranscribed: number,
   summaryTextLength: number
 ): CostBreakdown {
-  const transcriptionCost = minutesTranscribed * WHISPER_COST_PER_MINUTE;
+  const transcriptionCost = minutesTranscribed * TRANSCRIPTION_COST_PER_MINUTE;
   const summarizationCost = CLAUDE_COST_ESTIMATE;
   const ttsCost = summaryTextLength * TTS_COST_PER_CHAR;
   const total = transcriptionCost + summarizationCost + ttsCost;

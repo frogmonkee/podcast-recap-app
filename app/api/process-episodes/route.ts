@@ -5,7 +5,7 @@ import { textToSpeech } from '@/lib/tts';
 import { summarizeEpisodes } from '@/lib/summarization';
 import { calculateActualCosts } from '@/lib/cost-calculator';
 import { findTranscript } from '@/lib/transcript-finder';
-import { transcribeAudio } from '@/lib/transcription';
+import { transcribeWithFireworks } from '@/lib/fireworks-transcription';
 import { truncateTranscript } from '@/lib/transcript-truncator';
 
 // Set maximum duration for this serverless function
@@ -28,12 +28,23 @@ export async function POST(request: NextRequest) {
 
     // Get API keys from environment variables
     const openaiApiKey = process.env.OPENAI_API_KEY;
-    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    const anthropicApiKey = process.env.APP_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
     const listenNotesApiKey = process.env.LISTENNOTES_API_KEY;
+    const fireworksApiKey = process.env.FIREWORKS_API_KEY;
+
+    console.log('[Server] API keys check - OpenAI:', !!openaiApiKey, 'Anthropic:', !!anthropicApiKey, 'Fireworks:', !!fireworksApiKey, 'ListenNotes:', !!listenNotesApiKey);
 
     if (!openaiApiKey || !anthropicApiKey) {
       return new Response(
         JSON.stringify({ error: 'Server API keys not configured' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!fireworksApiKey) {
+      console.error('[Server] FIREWORKS_API_KEY is not set in environment variables');
+      return new Response(
+        JSON.stringify({ error: 'Fireworks API key not configured' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -52,81 +63,81 @@ export async function POST(request: NextRequest) {
     // Process episodes asynchronously
     (async () => {
       try {
+        const pipelineStart = Date.now();
+        const timings: { step: string; seconds: number }[] = [];
+
         await sendProgress({
-          step: 'Fetching transcripts',
+          step: 'Transcribing episodes',
           percentage: 5,
-          message: 'Searching for existing transcripts...',
+          message: `Transcribing ${body.episodes.length} episode(s) in parallel...`,
         });
 
-        // Process each episode to get transcripts
-        const episodesWithTranscripts = [];
+        // Process all episodes in parallel
         let totalTranscriptionCost = 0;
+        const transcriptionStart = Date.now();
 
-        for (let i = 0; i < body.episodes.length; i++) {
-          const episode = body.episodes[i];
-          const progress = 5 + (i / body.episodes.length) * 40; // 5% to 45%
+        const episodeResults = await Promise.all(
+          body.episodes.map(async (episode, i) => {
+            const epTimings: { step: string; seconds: number }[] = [];
 
-          await sendProgress({
-            step: 'Processing episodes',
-            percentage: Math.round(progress),
-            message: `Processing episode ${i + 1} of ${body.episodes.length}: ${episode.title}`,
-          });
+            // Transcript search skipped — all sources are stubs that return null
+            // TODO: Re-enable when real transcript sources are implemented
+            let transcript = '';
 
-          let transcript = '';
+            // Transcribe with Fireworks AI if audioUrl available
+            if (episode.audioUrl) {
+              const fwStart = Date.now();
+              try {
+                console.log(`[Server] Starting Fireworks transcription for: ${episode.title}`);
+                transcript = await transcribeWithFireworks(episode.audioUrl, fireworksApiKey);
 
-          // Step 1: Try to find existing transcript
-          try {
-            const foundTranscript = await findTranscript(
-              episode.url,
-              episode.title,
-              episode.showName || 'Unknown Show'
-            );
+                const transcriptionTime = (Date.now() - fwStart) / 1000;
+                epTimings.push({
+                  step: `Fireworks transcription (ep ${i + 1}: ${episode.title})`,
+                  seconds: transcriptionTime,
+                });
+                console.log(`[Server] Fireworks transcription complete for "${episode.title}" in ${transcriptionTime.toFixed(1)}s`);
 
-            if (foundTranscript) {
-              transcript = foundTranscript.text;
-              console.log(`Found ${foundTranscript.source} transcript for: ${episode.title}`);
+                const durationMinutes = episode.duration ? episode.duration / 60 : 60;
+                const cost = durationMinutes * 0.0012;
+                console.log(`[Server] Estimated transcription cost: $${cost.toFixed(4)}`);
+
+                return { episode, transcript, epTimings, cost };
+              } catch (error) {
+                console.error(`[Server] Fireworks transcription failed for ${episode.title}:`, error);
+                throw new Error(`Failed to transcribe episode: ${episode.title}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+              }
             }
-          } catch (error) {
-            console.error('Transcript search failed:', error);
-          }
 
-          // Step 2: If no transcript found and audioUrl available, transcribe with Whisper
-          if (!transcript && episode.audioUrl) {
-            await sendProgress({
-              step: 'Transcribing audio',
-              percentage: Math.round(progress),
-              message: `Transcribing episode ${i + 1} with Whisper...`,
-            });
-
-            try {
-              transcript = await transcribeAudio(episode.audioUrl, openaiApiKey);
-
-              // Estimate transcription cost (Whisper is $0.006 per minute)
-              const durationMinutes = episode.duration ? episode.duration / 60 : 60;
-              totalTranscriptionCost += durationMinutes * 0.006;
-
-              console.log(`Transcribed episode: ${episode.title}`);
-            } catch (error) {
-              console.error(`Whisper transcription failed for ${episode.title}:`, error);
-              throw new Error(`Failed to transcribe episode: ${episode.title}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+            // Step 3: If still no transcript, fail
+            if (!transcript) {
+              throw new Error(`Could not obtain transcript for episode: ${episode.title}. No audio URL available from Listen Notes.`);
             }
+
+            return { episode, transcript, epTimings, cost: 0 };
+          })
+        );
+
+        const totalTranscriptionTime = (Date.now() - transcriptionStart) / 1000;
+        timings.push({
+          step: `All episodes transcribed (parallel)`,
+          seconds: totalTranscriptionTime,
+        });
+
+        // Collect per-episode timings and build ordered results
+        const episodesWithTranscripts = episodeResults.map((result, i) => {
+          timings.push(...result.epTimings);
+          totalTranscriptionCost += result.cost;
+
+          let { transcript } = result;
+
+          // Truncate final episode at timestamp if specified
+          if (i === body.episodes.length - 1 && result.episode.timestamp && result.episode.duration) {
+            transcript = truncateTranscript(transcript, result.episode.timestamp, result.episode.duration);
           }
 
-          // Step 3: If still no transcript, fail
-          if (!transcript) {
-            throw new Error(`Could not obtain transcript for episode: ${episode.title}. No audio URL available from Listen Notes.`);
-          }
-
-          // Step 4: Truncate final episode at timestamp if specified
-          if (i === body.episodes.length - 1 && episode.timestamp && episode.duration) {
-            transcript = truncateTranscript(transcript, episode.timestamp, episode.duration);
-          }
-
-          episodesWithTranscripts.push({
-            ...episode,
-            transcript,
-          });
-        }
+          return { ...result.episode, transcript };
+        });
 
         await sendProgress({
           step: 'Generating summary',
@@ -135,11 +146,16 @@ export async function POST(request: NextRequest) {
         });
 
         // Generate summary with Claude API
+        const summarizationStart = Date.now();
         const summaryText = await summarizeEpisodes(
           episodesWithTranscripts,
           body.targetDuration,
           anthropicApiKey
         );
+        timings.push({
+          step: 'Claude summarization',
+          seconds: (Date.now() - summarizationStart) / 1000,
+        });
 
         await sendProgress({
           step: 'Converting to speech',
@@ -148,11 +164,16 @@ export async function POST(request: NextRequest) {
         });
 
         // Convert to speech
+        const ttsStart = Date.now();
         const audioBuffer = await textToSpeech(
           summaryText,
           body.targetDuration * 60,
           openaiApiKey
         );
+        timings.push({
+          step: 'OpenAI TTS',
+          seconds: (Date.now() - ttsStart) / 1000,
+        });
 
         await sendProgress({
           step: 'Storing audio',
@@ -161,10 +182,30 @@ export async function POST(request: NextRequest) {
         });
 
         // Store in Vercel Blob
+        const blobStart = Date.now();
         const blob = await put(`summary-${Date.now()}.mp3`, audioBuffer, {
           access: 'public',
           contentType: 'audio/mpeg',
         });
+        timings.push({
+          step: 'Vercel Blob upload',
+          seconds: (Date.now() - blobStart) / 1000,
+        });
+
+        const totalSeconds = (Date.now() - pipelineStart) / 1000;
+
+        // Log timing table
+        console.log('\n' + '='.repeat(60));
+        console.log('  PIPELINE TIMING SUMMARY');
+        console.log('='.repeat(60));
+        console.log(`  ${'Step'.padEnd(45)} ${'Time'.padStart(10)}`);
+        console.log('-'.repeat(60));
+        for (const t of timings) {
+          console.log(`  ${t.step.padEnd(45)} ${t.seconds.toFixed(1).padStart(8)}s`);
+        }
+        console.log('-'.repeat(60));
+        console.log(`  ${'TOTAL'.padEnd(45)} ${totalSeconds.toFixed(1).padStart(8)}s`);
+        console.log('='.repeat(60) + '\n');
 
         // Calculate costs
         const costBreakdown = calculateActualCosts(totalTranscriptionCost, summaryText.length);

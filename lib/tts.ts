@@ -73,21 +73,25 @@ async function generateLongAudio(
     speed = Math.max(0.75, estimatedDuration / targetDurationSeconds);
   }
 
-  // Generate audio for each chunk
-  const audioBuffers: Buffer[] = [];
-  for (let i = 0; i < chunks.length; i++) {
-    console.log(`Generating audio chunk ${i + 1}/${chunks.length} (${chunks[i].length} chars)...`);
+  // Generate audio for all chunks in parallel
+  console.log(`Generating ${chunks.length} audio chunks in parallel...`);
 
-    const mp3 = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: 'alloy',
-      input: chunks[i],
-      speed: speed,
-    });
+  const audioBuffers = await Promise.all(
+    chunks.map(async (chunk, i) => {
+      console.log(`Starting audio chunk ${i + 1}/${chunks.length} (${chunk.length} chars)...`);
 
-    const buffer = Buffer.from(await mp3.arrayBuffer());
-    audioBuffers.push(buffer);
-  }
+      const mp3 = await openai.audio.speech.create({
+        model: 'tts-1',
+        voice: 'alloy',
+        input: chunk,
+        speed: speed,
+      });
+
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      console.log(`Finished audio chunk ${i + 1}/${chunks.length}`);
+      return buffer;
+    })
+  );
 
   console.log(`Successfully generated all ${chunks.length} audio chunks`);
 

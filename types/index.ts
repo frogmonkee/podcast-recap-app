@@ -22,7 +22,7 @@ export interface EpisodeMetadata {
 
 export interface TranscriptResult {
   text: string;
-  source: 'spotify' | 'rss' | 'youtube' | 'web' | 'whisper';
+  source: 'spotify' | 'rss' | 'youtube' | 'web' | 'whisper' | 'fireworks';
 }
 
 export interface CostBreakdown {
