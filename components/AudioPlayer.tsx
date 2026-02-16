@@ -18,7 +18,7 @@ export function AudioPlayer({ result, onReset, episodeMetadata }: AudioPlayerPro
   const [volume, setVolume] = useState(1);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const volumeContainerRef = useRef<HTMLDivElement>(null);
+  const volumeBarRef = useRef<HTMLDivElement>(null);
 
   const firstEpisode = episodeMetadata?.[0];
   const thumbnail = firstEpisode?.thumbnailUrl;
@@ -96,19 +96,33 @@ export function AudioPlayer({ result, onReset, episodeMetadata }: AudioPlayerPro
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  // Close volume slider when clicking outside
-  useEffect(() => {
-    if (!showVolumeSlider) return;
+  const handleVolumeBarInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const bar = volumeBarRef.current;
+    if (!bar) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      if (volumeContainerRef.current && !volumeContainerRef.current.contains(e.target as Node)) {
-        setShowVolumeSlider(false);
-      }
+    const updateFromEvent = (clientX: number) => {
+      const rect = bar.getBoundingClientRect();
+      const newVol = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      if (audioRef.current) audioRef.current.volume = newVol;
+      setVolume(newVol);
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showVolumeSlider]);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    updateFromEvent(clientX);
+
+    if ('touches' in e) {
+      const onTouchMove = (ev: TouchEvent) => { ev.preventDefault(); updateFromEvent(ev.touches[0].clientX); };
+      const onTouchEnd = () => { document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); };
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
+      document.addEventListener('touchend', onTouchEnd);
+    } else {
+      const onMouseMove = (ev: MouseEvent) => updateFromEvent(ev.clientX);
+      const onMouseUp = () => { document.removeEventListener('mousemove', onMouseMove); document.removeEventListener('mouseup', onMouseUp); };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -214,55 +228,37 @@ export function AudioPlayer({ result, onReset, episodeMetadata }: AudioPlayerPro
           </button>
 
           {/* Volume Control */}
-          <div className="relative" ref={volumeContainerRef}>
-            <button
-              onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-              className="flex size-12 items-center justify-center rounded-full text-[#b3b3b3] transition-colors hover:text-white"
-              title="Adjust volume"
-            >
-              <Volume2 className="size-6" />
-            </button>
-
-            {/* Popup Volume Slider */}
-            {showVolumeSlider && (
-              <div
-                className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 flex-col items-center gap-2 rounded-lg bg-[#282828] p-3 shadow-xl"
-              >
-                <div
-                  className="relative h-32 w-1 cursor-pointer rounded-full bg-[#4d4d4d]"
-                  onMouseDown={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const updateVolume = (clientY: number) => {
-                      const newVol = Math.max(0, Math.min(1, (rect.bottom - clientY) / rect.height));
-                      if (audioRef.current) audioRef.current.volume = newVol;
-                      setVolume(newVol);
-                    };
-                    updateVolume(e.clientY);
-                    const onMove = (ev: MouseEvent) => updateVolume(ev.clientY);
-                    const onUp = () => {
-                      document.removeEventListener('mousemove', onMove);
-                      document.removeEventListener('mouseup', onUp);
-                    };
-                    document.addEventListener('mousemove', onMove);
-                    document.addEventListener('mouseup', onUp);
-                  }}
-                >
-                  {/* Filled portion */}
-                  <div
-                    className="absolute bottom-0 w-full rounded-full bg-[#1DB954]"
-                    style={{ height: `${volume * 100}%` }}
-                  />
-                  {/* Thumb */}
-                  <div
-                    className="absolute left-1/2 size-3 -translate-x-1/2 rounded-full bg-white"
-                    style={{ bottom: `calc(${volume * 100}% - 6px)` }}
-                  />
-                </div>
-                <span className="text-xs text-[#b3b3b3]">{Math.round(volume * 100)}%</span>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+            className={`flex size-12 items-center justify-center rounded-full transition-colors ${showVolumeSlider ? 'text-[#1DB954]' : 'text-[#b3b3b3] hover:text-white'}`}
+            title="Adjust volume"
+          >
+            <Volume2 className="size-6" />
+          </button>
         </div>
+
+        {/* Horizontal Volume Slider */}
+        {showVolumeSlider && (
+          <div className="mx-auto mt-6 flex max-w-md items-center gap-3">
+            <Volume2 className="size-5 shrink-0 text-[#b3b3b3]" />
+            <div
+              className="relative h-1.5 flex-1 cursor-pointer rounded-full bg-[#4d4d4d]"
+              ref={volumeBarRef}
+              onMouseDown={handleVolumeBarInteraction}
+              onTouchStart={handleVolumeBarInteraction}
+            >
+              <div
+                className="absolute left-0 top-0 h-full rounded-full bg-[#1DB954]"
+                style={{ width: `${volume * 100}%` }}
+              />
+              <div
+                className="absolute top-1/2 size-4 -translate-y-1/2 rounded-full bg-white"
+                style={{ left: `calc(${volume * 100}% - 8px)` }}
+              />
+            </div>
+            <span className="w-10 text-right text-xs text-[#b3b3b3]">{Math.round(volume * 100)}%</span>
+          </div>
+        )}
 
         {/* Hidden Audio Element */}
         <audio ref={audioRef} src={result.audioUrl} />
