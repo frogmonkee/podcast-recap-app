@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Play } from 'lucide-react';
 import { Episode, EpisodeMetadata } from '@/types';
 import { useJob } from '@/hooks/useJob';
@@ -31,12 +31,18 @@ export default function Home() {
   // Use exact episode duration in seconds for spoiler slider
   const lastEpisodeDuration = lastEpisode?.duration || 3600;
 
-  // When last episode changes, reset maxTimestamp to its full duration
+  // Track the last episode ID so we only reset maxTimestamp when the episode itself changes
+  const prevLastEpisodeTitleRef = useRef<string | null>(null);
+
   const handleEpisodeDataChange = (dataList: (EpisodeMetadata | null)[]) => {
     setEpisodeMetadataList(dataList);
     const validData = dataList.filter((ep): ep is EpisodeMetadata => ep !== null);
     const newLastEpisode = validData[validData.length - 1];
-    if (newLastEpisode) {
+    const newLastTitle = newLastEpisode?.title ?? null;
+
+    // Only reset maxTimestamp when the last episode actually changes
+    if (newLastEpisode && newLastTitle !== prevLastEpisodeTitleRef.current) {
+      prevLastEpisodeTitleRef.current = newLastTitle;
       setMaxTimestamp(newLastEpisode.duration);
     }
   };
@@ -99,7 +105,7 @@ export default function Home() {
           <div className="space-y-6">
             {/* Input Section */}
             <div className="rounded-lg bg-[#181818] p-6">
-              <h2 className="mb-4 text-center text-xl font-semibold">Summarize Any Spotify Podcast</h2>
+              <h2 className="mb-4 text-center text-xl font-semibold">Summarize Any <span className="text-[#1DB954]">Spotify</span> Podcast</h2>
 
               <MultiEpisodeInput
                 episodes={episodes}
