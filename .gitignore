@@ -42,3 +42,6 @@ next-env.d.ts
 
 # docs
 PRODUCT_REQUIREMENTS.md
+
+# Figma export (source for UI migration, not part of app)
+Front End Spotify Podcast Summarizer/

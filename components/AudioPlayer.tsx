@@ -1,141 +1,273 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { SummaryResult } from '@/types';
-import { formatDuration, formatCost } from '@/lib/utils';
-
-const SPEED_PRESETS = [1, 1.25, 1.5, 2] as const;
+import { useState, useRef, useEffect } from 'react';
+import { Play, Pause, Volume2, ArrowLeft } from 'lucide-react';
+import { SummaryResult, EpisodeMetadata } from '@/types';
 
 interface AudioPlayerProps {
   result: SummaryResult;
+  onReset: () => void;
+  episodeMetadata?: EpisodeMetadata[];
 }
 
-export default function AudioPlayer({ result }: AudioPlayerProps) {
+export function AudioPlayer({ result, onReset, episodeMetadata }: AudioPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
+  const volumeContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleSpeedChange = (speed: number) => {
-    setPlaybackSpeed(speed);
-    if (audioRef.current) {
-      audioRef.current.playbackRate = speed;
+  const firstEpisode = episodeMetadata?.[0];
+  const thumbnail = firstEpisode?.thumbnailUrl;
+  const displayTitle = firstEpisode?.showName || 'Podcast Summary';
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const updateTime = () => setCurrentTime(audio.currentTime);
+    const updateDuration = () => setAudioDuration(audio.duration);
+    const handleEnded = () => setIsPlaying(false);
+
+    audio.addEventListener('timeupdate', updateTime);
+    audio.addEventListener('loadedmetadata', updateDuration);
+    audio.addEventListener('ended', handleEnded);
+
+    return () => {
+      audio.removeEventListener('timeupdate', updateTime);
+      audio.removeEventListener('loadedmetadata', updateDuration);
+      audio.removeEventListener('ended', handleEnded);
+    };
+  }, []);
+
+  const togglePlayPause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      audio.play();
     }
+    setIsPlaying(!isPlaying);
   };
-  const handleDownload = async () => {
-    try {
-      const response = await fetch(result.audioUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'podcast-summary.mp3';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('Failed to download audio file');
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const time = parseFloat(e.target.value);
+    audio.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  const togglePlaybackRate = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const rates = [1, 1.25, 1.5, 2];
+    const currentIndex = rates.indexOf(playbackRate);
+    const nextIndex = (currentIndex + 1) % rates.length;
+    const newRate = rates[nextIndex];
+
+    audio.playbackRate = newRate;
+    setPlaybackRate(newRate);
+  };
+
+  const skipTime = (seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    audio.currentTime = Math.max(0, Math.min(audio.duration, audio.currentTime + seconds));
+  };
+
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return '0:00';
+    const hours = Math.floor(time / 3600);
+    const minutes = Math.floor((time % 3600) / 60);
+    const seconds = Math.floor(time % 60);
+
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
+
+  // Close volume slider when clicking outside
+  useEffect(() => {
+    if (!showVolumeSlider) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (volumeContainerRef.current && !volumeContainerRef.current.contains(e.target as Node)) {
+        setShowVolumeSlider(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showVolumeSlider]);
 
   return (
-    <div className="p-6 bg-white rounded-lg shadow-md space-y-4">
-      <h2 className="text-xl font-bold text-gray-900">Your Summary is Ready!</h2>
-
-      {/* Audio Player */}
-      <div className="w-full space-y-2">
-        <audio ref={audioRef} controls className="w-full" src={result.audioUrl}>
-          Your browser does not support the audio element.
-        </audio>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Speed:</span>
-          {SPEED_PRESETS.map((speed) => (
-            <button
-              key={speed}
-              onClick={() => handleSpeedChange(speed)}
-              className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-                playbackSpeed === speed
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              {speed}x
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Download Button */}
+    <div className="space-y-6">
+      {/* Back Button */}
       <button
-        onClick={handleDownload}
-        className="w-full md:w-auto px-6 py-3 bg-blue-600 text-white font-medium rounded-lg
-                   hover:bg-blue-700 active:bg-blue-800 transition-colors
-                   flex items-center justify-center gap-2"
+        onClick={onReset}
+        className="flex items-center gap-2 text-[#b3b3b3] transition-colors hover:text-white"
       >
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-          />
-        </svg>
-        Download Audio
+        <ArrowLeft className="size-5" />
+        <span className="text-sm">Summarize another podcast</span>
       </button>
 
-      {/* Duration Info */}
-      <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-md">
-        <div>
-          <p className="text-sm text-gray-600">Target Duration</p>
-          <p className="text-lg font-semibold text-gray-900">
-            {formatDuration(result.targetDuration)}
-          </p>
+      {/* Player Card */}
+      <div className="rounded-lg bg-[#181818] p-12">
+        {/* Album Art - Centered */}
+        <div className="mx-auto mb-12 flex max-w-lg items-center justify-center">
+          <div className="flex aspect-square w-96 items-center justify-center overflow-hidden rounded-lg bg-[#282828] shadow-2xl">
+            {thumbnail ? (
+              <img src={thumbnail} alt="Podcast Thumbnail" className="h-full w-full object-cover" />
+            ) : (
+              <svg width="160" height="160" viewBox="0 0 120 120" fill="none">
+                <circle cx="60" cy="60" r="50" fill="#1DB954" opacity="0.2"/>
+                <path d="M60 20C37.9 20 20 37.9 20 60s17.9 40 40 40 40-17.9 40-40S82.1 20 60 20zm0 72c-17.6 0-32-14.4-32-32s14.4-32 32-32 32 14.4 32 32-14.4 32-32 32z" fill="#1DB954"/>
+                <path d="M52 44v32l24-16z" fill="#1DB954"/>
+              </svg>
+            )}
+          </div>
         </div>
-        <div>
-          <p className="text-sm text-gray-600">Actual Duration</p>
-          <p className="text-lg font-semibold text-gray-900">
-            {formatDuration(result.actualDuration)}
-          </p>
+
+        {/* Track Info */}
+        <div className="mb-10 text-center">
+          <h2 className="mb-2 text-3xl font-bold">{displayTitle}</h2>
         </div>
+
+        {/* Progress Bar */}
+        <div className="mb-3">
+          <input
+            type="range"
+            min="0"
+            max={audioDuration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#4d4d4d] [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+            style={{
+              background: audioDuration
+                ? `linear-gradient(to right, #1DB954 0%, #1DB954 ${(currentTime / audioDuration) * 100}%, #4d4d4d ${(currentTime / audioDuration) * 100}%, #4d4d4d 100%)`
+                : '#4d4d4d'
+            }}
+          />
+        </div>
+
+        {/* Time Display */}
+        <div className="mb-10 flex justify-between text-sm text-[#b3b3b3]">
+          <span>{formatTime(currentTime)}</span>
+          <span>-{formatTime(audioDuration - currentTime)}</span>
+        </div>
+
+        {/* Controls */}
+        <div className="mx-auto flex max-w-md items-center justify-center gap-6">
+          {/* Playback Speed Button */}
+          <button
+            onClick={togglePlaybackRate}
+            className="flex size-12 items-center justify-center rounded-full text-[#1DB954] transition-colors hover:text-white"
+            title={`Playback speed: ${playbackRate}x`}
+          >
+            <span className="text-base font-semibold">{playbackRate}x</span>
+          </button>
+
+          {/* Skip Back 15s */}
+          <button
+            onClick={() => skipTime(-15)}
+            className="flex size-12 items-center justify-center rounded-full text-[#b3b3b3] transition-colors hover:text-white"
+            title="Skip back 15s"
+          >
+            <svg width="32" height="32" viewBox="0 0 28 28" fill="currentColor">
+              <path d="M14 4.5c5.25 0 9.5 4.25 9.5 9.5 0 5.25-4.25 9.5-9.5 9.5s-9.5-4.25-9.5-9.5h2c0 4.15 3.35 7.5 7.5 7.5s7.5-3.35 7.5-7.5-3.35-7.5-7.5-7.5c-2.05 0-3.9.85-5.25 2.2L11.5 11.5h-7v-7l2.4 2.4C8.75 5.3 11.25 4.5 14 4.5z"/>
+              <text x="14" y="18" fontSize="8" fontWeight="bold" textAnchor="middle" fill="currentColor">15</text>
+            </svg>
+          </button>
+
+          {/* Play/Pause Button */}
+          <button
+            onClick={togglePlayPause}
+            className="flex size-16 flex-shrink-0 items-center justify-center rounded-full bg-white text-black transition-transform hover:scale-105"
+          >
+            {isPlaying ? (
+              <Pause className="size-7" fill="black" />
+            ) : (
+              <Play className="ml-1 size-7" fill="black" />
+            )}
+          </button>
+
+          {/* Skip Forward 15s */}
+          <button
+            onClick={() => skipTime(15)}
+            className="flex size-12 items-center justify-center rounded-full text-[#b3b3b3] transition-colors hover:text-white"
+            title="Skip forward 15s"
+          >
+            <svg width="32" height="32" viewBox="0 0 28 28" fill="currentColor">
+              <path d="M14 4.5C8.75 4.5 4.5 8.75 4.5 14c0 5.25 4.25 9.5 9.5 9.5s9.5-4.25 9.5-9.5h-2c0 4.15-3.35 7.5-7.5 7.5S6.5 18.15 6.5 14 9.85 6.5 14 6.5c2.05 0 3.9.85 5.25 2.2L16.5 11.5h7v-7l-2.4 2.4C19.25 5.3 16.75 4.5 14 4.5z"/>
+              <text x="14" y="18" fontSize="8" fontWeight="bold" textAnchor="middle" fill="currentColor">15</text>
+            </svg>
+          </button>
+
+          {/* Volume Control */}
+          <div className="relative" ref={volumeContainerRef}>
+            <button
+              onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+              className="flex size-12 items-center justify-center rounded-full text-[#b3b3b3] transition-colors hover:text-white"
+              title="Adjust volume"
+            >
+              <Volume2 className="size-6" />
+            </button>
+
+            {/* Popup Volume Slider */}
+            {showVolumeSlider && (
+              <div
+                className="absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 flex-col items-center gap-2 rounded-lg bg-[#282828] p-3 shadow-xl"
+              >
+                <div
+                  className="relative h-32 w-1 cursor-pointer rounded-full bg-[#4d4d4d]"
+                  onMouseDown={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const updateVolume = (clientY: number) => {
+                      const newVol = Math.max(0, Math.min(1, (rect.bottom - clientY) / rect.height));
+                      if (audioRef.current) audioRef.current.volume = newVol;
+                      setVolume(newVol);
+                    };
+                    updateVolume(e.clientY);
+                    const onMove = (ev: MouseEvent) => updateVolume(ev.clientY);
+                    const onUp = () => {
+                      document.removeEventListener('mousemove', onMove);
+                      document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                  }}
+                >
+                  {/* Filled portion */}
+                  <div
+                    className="absolute bottom-0 w-full rounded-full bg-[#1DB954]"
+                    style={{ height: `${volume * 100}%` }}
+                  />
+                  {/* Thumb */}
+                  <div
+                    className="absolute left-1/2 size-3 -translate-x-1/2 rounded-full bg-white"
+                    style={{ bottom: `calc(${volume * 100}% - 6px)` }}
+                  />
+                </div>
+                <span className="text-xs text-[#b3b3b3]">{Math.round(volume * 100)}%</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Hidden Audio Element */}
+        <audio ref={audioRef} src={result.audioUrl} />
       </div>
 
-      {/* Cost Breakdown */}
-      <div className="border-t pt-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Cost Breakdown</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-gray-600">Transcription (Whisper)</span>
-            <span className="font-medium">{formatCost(result.costBreakdown.transcription)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Summarization (Claude)</span>
-            <span className="font-medium">{formatCost(result.costBreakdown.summarization)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-600">Text-to-Speech (TTS)</span>
-            <span className="font-medium">{formatCost(result.costBreakdown.tts)}</span>
-          </div>
-          <div className="flex justify-between pt-2 border-t font-bold text-base">
-            <span>Total Cost</span>
-            <span className="text-blue-600">{formatCost(result.costBreakdown.total)}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Summary Text (Collapsible) */}
-      <details className="border-t pt-4">
-        <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
-          View Text Summary
-        </summary>
-        <div className="mt-3 p-4 bg-gray-50 rounded-md text-sm text-gray-700 whitespace-pre-wrap">
-          {result.summaryText}
-        </div>
-      </details>
     </div>
   );
 }

@@ -58,48 +58,49 @@ export async function POST(request: NextRequest) {
     // Step 2: If Listen Notes API key available, fetch duration and audio URL
     if (listenNotesApiKey) {
       try {
-        // Try search with title first (most specific)
-        let searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
-          title
-        )}&type=episode&only_in=title`;
+        // Search with both title and show name for precise matching
+        const searchQuery = showName ? `${title} ${showName}` : title;
+        const searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
+          searchQuery
+        )}&type=episode`;
 
-        console.log('[Listen Notes] Searching for episode:', title);
-        console.log('[Listen Notes] Show name:', showName);
-        let listenNotesResponse = await fetch(searchUrl, {
+        console.log('[Listen Notes] Searching for:', searchQuery);
+        const listenNotesResponse = await fetch(searchUrl, {
           headers: {
             'X-ListenAPI-Key': listenNotesApiKey,
           },
         });
 
         console.log('[Listen Notes] Response status:', listenNotesResponse.status);
-        let searchData = await listenNotesResponse.json();
-
-        // If no results with title-only search, try broader search with show name
-        if (listenNotesResponse.ok && (!searchData.results || searchData.results.length === 0) && showName) {
-          console.log('[Listen Notes] No results with title-only, trying with show name...');
-          searchUrl = `https://listen-api.listennotes.com/api/v2/search?q=${encodeURIComponent(
-            `${title} ${showName}`
-          )}&type=episode`;
-
-          listenNotesResponse = await fetch(searchUrl, {
-            headers: {
-              'X-ListenAPI-Key': listenNotesApiKey,
-            },
-          });
-
-          if (listenNotesResponse.ok) {
-            searchData = await listenNotesResponse.json();
-          }
-        }
+        const searchData = await listenNotesResponse.json();
 
         if (listenNotesResponse.ok) {
-          // Find best match by title similarity
           if (searchData.results && searchData.results.length > 0) {
-            const match = searchData.results[0]; // Use first result (most relevant)
-            console.log('[Listen Notes] Found match:', match.title_original, 'Duration:', match.audio_length_sec);
-            console.log('[Listen Notes] Audio URL:', match.audio);
-            console.log('[Listen Notes] Audio URL present:', !!match.audio);
-            console.log('[Listen Notes] Match object keys:', Object.keys(match));
+            // Find best match: prefer exact title match, then match with same podcast name
+            const titleLower = title.toLowerCase().trim();
+            const showLower = showName.toLowerCase().trim();
+
+            let match = searchData.results.find((r: { title_original?: string; podcast?: { title_original?: string } }) => {
+              const rTitle = (r.title_original || '').toLowerCase().trim();
+              const rShow = (r.podcast?.title_original || '').toLowerCase().trim();
+              return rTitle === titleLower && (!showLower || rShow.includes(showLower) || showLower.includes(rShow));
+            });
+
+            // Fallback: title contains match with same podcast
+            if (!match && showLower) {
+              match = searchData.results.find((r: { title_original?: string; podcast?: { title_original?: string } }) => {
+                const rTitle = (r.title_original || '').toLowerCase().trim();
+                const rShow = (r.podcast?.title_original || '').toLowerCase().trim();
+                return rTitle.includes(titleLower) && (rShow.includes(showLower) || showLower.includes(rShow));
+              });
+            }
+
+            // Last fallback: first result
+            if (!match) {
+              match = searchData.results[0];
+            }
+
+            console.log('[Listen Notes] Found match:', match.title_original, '| Podcast:', match.podcast?.title_original, '| Duration:', match.audio_length_sec);
 
             // Update metadata with Listen Notes data
             metadata.duration = match.audio_length_sec || metadata.duration;
@@ -129,8 +130,7 @@ export async function POST(request: NextRequest) {
             console.log('[Listen Notes] No results found for:', title);
           }
         } else {
-          const errorText = await listenNotesResponse.text();
-          console.error('[Listen Notes] API error:', listenNotesResponse.status, errorText);
+          console.error('[Listen Notes] API error:', listenNotesResponse.status);
         }
       } catch (listenNotesError) {
         // Listen Notes failed, but we still have oEmbed data
